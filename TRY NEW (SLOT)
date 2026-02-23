@@ -1,0 +1,478 @@
+		script = "<script>\r\n" + 
+    			"$(document).ready(function () {\r\n" + 
+    			"  let table"+descId+";\r\n" + 
+    			"  let table"+descId+"FilterFunction;\r\n" + 
+    			//"  let checkedRows"+descId+" = new Set();  // ← 기존 (삭제)\r\n" +  //  주석 처리
+    			"  window.checkedRows"+descId+" = new Set();  //  전역 변수로 변경\r\n" +
+    			"\r\n" + 
+    			//"  $('#selectAll_"+descId+"').on('change', function(){\r\n" +
+    			//"    $('input[name=\"selectChk\"]').prop('checked', this.checked);\r\n" +
+    			"  $('#selectAll_"+descId+"').on('change', function(){\r\n" +
+    			"    $('#"+tableId+" input[name=\"selectChk\"]').prop('checked', this.checked);\r\n" +
+    			"  });\r\n" +
+    			"  // 테이블별 고유 필터 함수 생성\r\n" + 
+    			"  function createTableFilter"+descId+"(tableId, searchInputId, orModeId) {\r\n" + 
+    			"    return function(settings, data, dataIndex) {\r\n" + 
+    			"      if (settings.nTable.id !== tableId) return true;\r\n" + 
+    			"      const searchInput = $('#' + searchInputId);\r\n" + 
+    			"      const orModeInput = $('#' + orModeId);\r\n" + 
+    			"      if (!searchInput.length || !orModeInput.length) return true;\r\n" + 
+    			"        const val = $('#' + searchInputId).val() || '';\r\n" + 
+    			"        const isOr = $('#' + orModeId).is(':checked');\r\n" + 
+    			"      const keywords = val.toLowerCase().split(/\\s+/).filter(Boolean);\r\n" + 
+    			"      const rowText = data.join(' ').toLowerCase();\r\n" + 
+    			"      if (keywords.length === 0) return true;\r\n" + 
+    			"      return isOr\r\n" + 
+    			"        ? keywords.some(k => rowText.includes(k))\r\n" + 
+    			"        : keywords.every(k => rowText.includes(k));\r\n" + 
+    			"    };\r\n" + 
+    			"  }\r\n" + 
+    			"\r\n" + 
+    			"  // Table 초기화 함수\r\n" + 
+    			"  function initTable"+descId+"() {\r\n" + 
+    			"    try {\r\n" + 
+    			"      // 기존 테이블 파괴\r\n" + 
+    			"		if ($.fn.DataTable.isDataTable('#"+tableId+"')) {\r\n" + 
+    			"			$('#"+tableId+"').DataTable().destroy();\r\n" + 
+    			"      }\r\n" + 
+    			"      // 기존 필터 함수 제거\r\n" + 
+    			"      if (table"+descId+"FilterFunction) {\r\n" + 
+    			"        const idx = $.fn.dataTable.ext.search.indexOf(table"+descId+"FilterFunction);\r\n" + 
+    			"        if (idx > -1) $.fn.dataTable.ext.search.splice(idx, 1);\r\n" + 
+    			"      }\r\n" + 
+    			"      // 입력값 초기화\r\n" + 
+    			"      $('#"+descId+"customSearch').val('');\r\n" + 
+    			"\r\n" + 
+    			"		table"+descId+" = $('#"+tableId+"').DataTable({\r\n" + 
+    			"        paging: false,\r\n" + 
+    			"        order: [],\r\n" + 
+    			"        searching: true,\r\n" + 
+    			"        info: true,\r\n" + 
+    			"        scrollY: '60vh',\r\n" + 
+    			"        scrollX: true,\r\n" + 
+    			"        scrollCollapse: true,\r\n" + 
+    			"        fixedColumns: { leftColumns: 3 },\r\n" + 
+    			"        stateSave: false,\r\n" +
+    			"        autoWidth: false,\r\n" +
+    			"		 columnDefs: [\r\n" + 
+    			"		   { orderable: false, targets: [-1, -2, -3] },   // 마지막 컬럼(SELECT) 정렬 끔\r\n" + 
+    			"		   { width: '110px', targets: 0 },\r\n" +   // PARTID
+    			"		   { width: '200px', targets: 1 },\r\n" +   // MODEL LIST
+    			"		   { width: '80px', targets: 2 },\r\n" +    // PDESC
+    			"		   { width: '50px', targets: 3 },\r\n" +    // LIFE TIME
+    			"		   { width: '80px', targets: 4 },\r\n" +    // LOCATION
+    			"		   { width: '80px', targets: 5 },\r\n" +    // LOCATION TYPE
+    			"		   { width: '90px', targets: 6 },\r\n" +    // PART QTY
+    			"		   { width: '100px', targets: 7 },\r\n" +   // TOTAL STOCK
+    			"		   { width: '80px', targets: 8 },\r\n" +    // PR
+    			"		   { width: '80px', targets: 9 },\r\n" +    // WH
+    			"		   { width: '100px', targets: 10 },\r\n" +   // PO TOTAL
+    			"		   { width: '70px', targets: 11 },\r\n" +   // IN
+    			"		   { width: '70px', targets: 12 },\r\n" +   // OUT
+    			"		   { width: '60px', targets: 13 },\r\n" +   // RANK
+    			"		   { width: '80px', targets: 14 },\r\n" +   // NEED TO IN
+    			"		   { width: '150px', targets: 15 },\r\n" +  // NEW LOCATION (넓게!)
+    			"		   { width: '120px', targets: 16 },\r\n" +  // QTY (넓게!)
+    			"		   { width: '60px', targets: 17 }\r\n" +    // SELECT
+    			"		 ],\r\n" +
+    			"        dom:\r\n" + 
+    			"          '<\"container-fluid small mb-1\"' +\r\n" + 
+    			"            '<\"d-flex justify-content-between align-items-center\"' +\r\n" + 
+    			"              '<\"d-flex\"' +\r\n" + 
+    			"                '<\"me-3 "+descId+"custom-search\">' +\r\n" + 
+    			"                '<\""+descId+"filter-search ms-2 mt-1\">' +\r\n" + 
+    			"              '>' +\r\n" + 
+    			"              '<\"toolbar"+descId+"_description mx-auto\">' +\r\n" + 
+    			"              '<\"d-flex align-items-center\"' +\r\n" + 
+    			"                '<\"me-3\"i>' +\r\n" + 
+    			"                '<\""+descId+"excel-toolbar ms-2\">' +\r\n" + 
+    			"              '>' +\r\n" + 
+    			"            '>' +\r\n" + 
+    			"          '>t',\r\n" + 
+    			"        initComplete: function () {\r\n" + 
+    			"          const api = this.api();\r\n" + 
+    			"          // 검색박스\r\n" + 
+    			"          $('."+descId+"custom-search').html(`\r\n" + 
+    			"            <div class=\"input-group input-group-sm\">\r\n" + 
+    			"              <input type=\"search\" id=\""+descId+"customSearch\" class=\"form-control\" placeholder=\"Keywords\">\r\n" + 
+    			"            </div>\r\n" + 
+    			"          `);\r\n" + 
+    			"          // OR 스위치\r\n" + 
+    			"          $('."+descId+"filter-search').html(`\r\n" + 
+    			"            <div class=\"form-check form-switch\">\r\n" + 
+    			"              <input class=\"form-check-input\" type=\"checkbox\" id=\""+descId+"orMode\">\r\n" + 
+    			"              <label class=\"form-check-label small\" for=\""+descId+"orMode\">OR</label>\r\n" + 
+    			"            </div>\r\n" + 
+    			"          `);\r\n" + 
+    			"          // Excel 버튼\r\n" +
+    			//"          $('."+descId+"excel-toolbar').html('<button id=\"excelBtn1\" class=\"btn btn-warning btn-sm\">Excel</button>');\r\n" +
+    			"          $('."+descId+"excel-toolbar').html(\"<button id='excelBtn_"+descId+"' class='btn btn-warning btn-sm'>Excel</button>\");\r\n" +
+    			"          // 필터 함수 등록\r\n" + 
+    			"          table"+descId+"FilterFunction = createTableFilter"+descId+"('"+tableId+"', '"+descId+"customSearch', '"+descId+"orMode');\r\n" + 
+    			"          $.fn.dataTable.ext.search.push(table"+descId+"FilterFunction);\r\n" + 
+    			"          $('#"+descId+"customSearch').off('input').on('input', () => api.draw());\r\n" + 
+    			"          $('#"+descId+"orMode').off('change').on('change', () => api.draw());\r\n" + 
+    			"          setTimeout(() => api.draw(), 0);\r\n" + 
+    			"        },\r\n" + 
+    		    "        drawCallback: function() {\r\n" +  //  테이블 다시 그려질 때 체크박스 상태 복원
+    		    "          // 저장된 체크박스 상태 복원\r\n" +
+    		    "          const $table = $('#"+tableId+"');\r\n" +
+    		    "          $table.find('input.wmaps-row').each(function() {\r\n" +
+    		    "            const rowKey = $(this).val();\r\n" +
+    		    "            if (checkedRows"+descId+".has(rowKey)) {\r\n" +
+    		    "              $(this).prop('checked', true);\r\n" +
+    		    "            }\r\n" +
+    		    "          });\r\n" +
+    		    "          \r\n" +
+    		    "          // Select All 체크박스 상태 업데이트\r\n" +
+    		    "          const $visibleRows = $table.find('input.wmaps-row:visible');\r\n" +
+    		    "          const $checkedVisible = $visibleRows.filter(':checked');\r\n" +
+    		    "          $('#selectAll_"+descId+"').prop('checked', \r\n" +
+    		    "            $visibleRows.length > 0 && $visibleRows.length === $checkedVisible.length\r\n" +
+    		    "          );\r\n" +
+    		    "          \r\n" +
+    		    //"          refreshSelectedSummary"+descId+"();\r\n" +
+    		    "          // 함수가 정의되어 있으면 호출\r\n" +
+    		    "          if (typeof refreshSelectedSummary"+descId+" === 'function') {\r\n" +
+    		    "            refreshSelectedSummary"+descId+"();\r\n" +
+    		    "          }\r\n" +
+    		    "        },\r\n" +  // ← 추가 끝
+    			"        footerCallback: function () {\r\n" + 
+    			"          const api = this.api();\r\n" + 
+    			"          const nfi = Intl.NumberFormat();\r\n" + 
+    			"          const nfc = Intl.NumberFormat('en-US', { minimumFractionDigits: 2 });\r\n" + 
+    			"          const s_arr = ["+slist+"]\r\n" + 
+/*		    			"          s_arr.forEach(idx => {\r\n" + 
+    			"            const s = api.column(idx, { filter: 'applied' }).data().sum();\r\n" +*/
+    			"		   s_arr.forEach(idx => {\r\n" + 
+    			"    		// 수정된 부분: '-' 또는 null/빈 값은 무시하고 숫자만 더함\r\n" + 
+    			"   		 const s = api.column(idx, { filter: 'applied' }).data().reduce((sum, val) => {\r\n" + 
+    			"    		   if (val === '-' || val === null || val === '' || val === undefined) return sum;\r\n" + 
+    			"     		   const num = parseFloat(val.toString().replace(/,/g, ''));\r\n" + 
+    			"     		   return isNaN(num) ? sum : sum + num;\r\n" + 
+    			"   		 	}, 0); \r\n" + 
+    			"            $(api.column(idx).footer()).html(nfi.format(s.toFixed(0)));\r\n" + 
+    			"          });\r\n" + 
+    			"        }\r\n" + 
+    			"      });\r\n" + 
+    			"    } catch (error) {\r\n" + 
+    			"      console.error('initTable"+descId+" error:', error);\r\n" + 
+    			"    }\r\n" + 
+    			"  } // end initTable1\r\n" + 
+    			"\r\n" + 
+    			"  // 초기화 호출\r\n" + 
+    			"  initTable"+descId+"();\r\n" + 
+    			"\r\n" +
+    			"  // Excel 버튼 이벤트\r\n"  +
+				"  $('#excelBtn_"+descId+"').on('click', function(e){\r\n" + 
+				"    e.preventDefault();\r\n" +
+				"    $('#lookupForm')\r\n" + 
+				"      .attr('action','/part/Part_Room/Parts_WMAPS/WMAPS_IN_Excel')\r\n" + 
+				"      .attr('target','_blank')\r\n" + 
+				"      .trigger('submit');\r\n" + 
+				"  });\r\n" +
+				"  // Excel 완전심플 다른엑셀버튼\r\n"  +
+				"  $('#wmaps_excel_"+descId+"').on('click', function(){\r\n" + 
+				"    $('#lookupForm')\r\n" + 
+				"      .attr('action','/part/Part_Room/Parts_WMAPS/WMAPS_IN_SIMPLE_Excel')\r\n" + 
+				"      .attr('target','_blank')\r\n" + 
+				"      .trigger('submit');\r\n" + 
+				"  });\r\n" +
+				// 선택된 항목만 Excel 출력 -
+				"  $('#wmaps_excel_selected_"+descId+"').on('click', function(){\r\n" +
+				"    const selectedKeys = [];\r\n" +
+				"    $('#"+tableId+" input.wmaps-row:checked').each(function(){\r\n" +
+				"      const rowKey = $(this).val(); // 예: 'GH81-20199A_50702'\r\n" +
+				"      selectedKeys.push(rowKey);\r\n" +
+				"    });\r\n" +
+				"    \r\n" +
+				"    if(selectedKeys.length === 0) {\r\n" +
+				"      alert('선택된 항목이 없습니다. Please select first.');\r\n" +
+				"      return;\r\n" +
+				"    }\r\n" +
+				"    \r\n" +
+				"    console.log('Selected keys:', selectedKeys);\r\n" +
+				"    \r\n" +
+				"    $('<input>').attr({\r\n" +
+				"      type: 'hidden',\r\n" +
+				"      name: 'selectedKeys',\r\n" +
+				"      value: selectedKeys.join(',')\r\n" +
+				"    }).appendTo('#lookupForm');\r\n" +
+				"    \r\n" +
+				"    $('#lookupForm').attr('action','/part/Part_Room/Parts_WMAPS/WMAPS_IN_SIMPLE_Excel2').attr('target','_blank').submit();\r\n" +
+				"    \r\n" +
+				"    setTimeout(function(){\r\n" +
+				"      $('input[name=\"selectedKeys\"]').remove();\r\n" +
+				"    }, 1000);\r\n" +
+				"  });\r\n" +
+    			"  // 윈도우 리사이즈 시 테이블 조정\r\n" + 
+    			"  $(window).on('resize', function () {\r\n" + 
+    			"    if ($.fn.DataTable.isDataTable('#"+tableId+"')) {\r\n" + 
+    			"      $('#"+tableId+"').DataTable().columns.adjust().draw();\r\n" + 
+    			"    }\r\n" + 
+    			"  });\r\n" + 
+    			"\r\n" + 
+    			"}); // end document.ready\r\n" + 
+    			"</script>\r\n" + 
+    			"";	
+		script += 
+				"<script>\r\n" +
+				"$(document).ready(function(){\r\n" +
+				"  // --- 이 테이블(#"+tableId+")만 스코프로 쓰기 ---\r\n" +
+				"  function scope"+descId+"(){ return $('#"+tableId+"'); }\r\n" +
+				"\r\n" +
+			    // ========== 여기 추가! (1) ==========
+			    "  // Clear 카운터 초기화\r\n" +
+			    "  if (!window.clearCount"+descId+") window.clearCount"+descId+" = 0;\r\n" +
+			    "  if (!window.clearTimer"+descId+") window.clearTimer"+descId+" = null;\r\n" +
+			    "\r\n" +
+			    // ====================================
+				"  // ---  더 이상 사용 안 함 (주석 처리) ---\r\n" +
+				"  // function collectSelectedItems"+descId+"(){\r\n" +
+				"  //   const items = [];\r\n" +
+				"  //   const $table = $('#"+tableId+"');\r\n" +
+				"  //   window.checkedRows"+descId+".forEach(function(rowKey){\r\n" +
+				"  //     const $checkbox = $table.find('input.wmaps-row[value=\"' + rowKey + '\"]');\r\n" +
+				"  //     if ($checkbox.length > 0) {\r\n" +
+				"  //       const $row = $checkbox.closest('tr');\r\n" +
+				"  //       let qty = $row.find('input.wmaps-qty').val();\r\n" +
+				"  //       qty = (qty === undefined || qty === null || qty === '') ? 0 : Number(qty);\r\n" +
+				"  //       items.push({ part_id: rowKey, qty: qty });\r\n" +
+				"  //     }\r\n" +
+				"  //   });\r\n" +
+				"  //   return items;\r\n" +
+				"  // }\r\n" +
+				"\r\n" +
+				"  // ---  저장된 데이터 직접 사용 ---\r\n" +
+				"  function refreshSelectedSummary"+descId+"(){\r\n" +
+				"    const $badge = $('#wmaps_selected_summary_"+descId+"');\r\n" +
+				"    if(!$badge.length) return;\r\n" +
+				"    // 저장된 데이터에서 직접 계산\r\n" +
+				"    if (!window.checkedRowsData"+descId+") window.checkedRowsData"+descId+" = {};\r\n" +
+				"    const count = Object.keys(window.checkedRowsData"+descId+").length;\r\n" +
+				"    const qtySum = Object.values(window.checkedRowsData"+descId+").reduce((s, qty) => s + qty, 0);\r\n" +
+				"    $badge.text('Selected: ' + count + ' (Qty: ' + qtySum + ')');\r\n" +
+				"  }\r\n" +
+				"\r\n" +
+				"  // --- Select All:  qty도 함께 저장 ---\r\n" +
+				"  $('#selectAll_"+descId+"')\r\n" +
+				"    .off('change.wmaps"+descId+"')\r\n" +
+				"    .on('change.wmaps"+descId+"', function(){\r\n" +
+				"      const $s = scope"+descId+"();\r\n" +
+				"      const isChecked = this.checked;\r\n" +
+				"      if (!window.checkedRowsData"+descId+") window.checkedRowsData"+descId+" = {};  // \r\n" +
+				"      $s.find('input.wmaps-row:visible').each(function() {\r\n" +
+				"        $(this).prop('checked', isChecked);\r\n" +
+				"        const rowKey = $(this).val();\r\n" +
+				"        if (isChecked) {\r\n" +
+				"          const $row = $(this).closest('tr');  // \r\n" +
+				"          const qty = $row.find('input.wmaps-qty').val() || 0;  // \r\n" +
+				"          window.checkedRowsData"+descId+"[rowKey] = Number(qty);  // \r\n" +
+				"          window.checkedRows"+descId+".add(rowKey);\r\n" +
+				"        } else {\r\n" +
+				"          window.checkedRows"+descId+".delete(rowKey);\r\n" +
+				"          delete window.checkedRowsData"+descId+"[rowKey];  // \r\n" +
+				"        }\r\n" +
+				"      });\r\n" +
+				"      refreshSelectedSummary"+descId+"();\r\n" +
+				"    });\r\n" +
+				"\r\n" +
+				"  // --- 체크박스 변경:  qty도 함께 저장 ---\r\n" +
+				"  $(document)\r\n" +
+				"    .off('change.wmaps"+descId+"', '#"+tableId+" input.wmaps-row')\r\n" +
+				"    .on('change.wmaps"+descId+"', '#"+tableId+" input.wmaps-row', function(){\r\n" +
+				"      const rowKey = $(this).val();\r\n" +
+				"      if ($(this).is(':checked')) {\r\n" +
+				"        const $row = $(this).closest('tr');  // \r\n" +
+				"        const qty = $row.find('input.wmaps-qty').val() || 0;  // \r\n" +
+				"        if (!window.checkedRowsData"+descId+") window.checkedRowsData"+descId+" = {};  // \r\n" +
+				"        window.checkedRowsData"+descId+"[rowKey] = Number(qty);  // \r\n" +
+				"        window.checkedRows"+descId+".add(rowKey);\r\n" +
+				"      } else {\r\n" +
+				"        window.checkedRows"+descId+".delete(rowKey);\r\n" +
+				"        if (window.checkedRowsData"+descId+") {  // \r\n" +
+				"          delete window.checkedRowsData"+descId+"[rowKey];  // \r\n" +
+				"        }  // \r\n" +
+				"      }\r\n" +
+				"      refreshSelectedSummary"+descId+"();\r\n" +
+				"    });\r\n" +
+				"\r\n" +
+				"  $('#wmaps_submit_"+descId+"')\r\n" +
+				"    .off('click.wmaps"+descId+"')\r\n" +
+				"    .on('click.wmaps"+descId+"', function(e){\r\n" +
+				"	 console.log('Move IN button clicked');\r\n" +
+				"      e.preventDefault();\r\n" +
+				"    const $btn = $(this);\r\n" + 
+				"    const originalText = $btn.text();\r\n" + 
+				"    $btn.prop('disabled', true)\r\n" + 
+				"        .text('You reap what you sow. You are doing great. Processing..')\r\n" + 
+				"        .addClass('btn-secondary')\r\n" + 
+				"        .removeClass('btn-primary');\r\n" +
+				"      $.ajax({\r\n" +
+				"        url: '/part/Part_Room/Parts_WMAPS/WMAPS_IN_Move',\r\n" +
+				"        method: 'POST',\r\n" +
+				"        data: $('#WMAPS_IN_Form').serialize(),\r\n" +
+				"        dataType: 'json',\r\n" +
+				"		 success: function(data) {\r\n" +
+				"		   if( data.status == 'SUCCESS' ){\r\n" +
+				"		     $('#modalContent').html(data.modalContent);\r\n" + 
+				"		     $('#hdiModal').modal(\"show\");\r\n" + 
+				"		     console.log('All success - auto hide and refresh');\r\n" +
+				"		     setTimeout(function(){\r\n" + 
+				"		       $('#hdiModal').modal('hide');\r\n" + 
+				"		       refreshTable();\r\n" +
+				"		     }, 3000);\r\n" +
+				"		   } else if( data.status == 'WARNING' ){\r\n" +
+				"		     $('#modalContent').html(data.modalContent);\r\n" + 
+				"		     $('#hdiModal').modal(\"show\");\r\n" + 
+				"		     console.log('Has failures - user must check manually');\r\n" +
+				"		     $('#hdiModal').off('hidden.bs.modal.wmaps').on('hidden.bs.modal.wmaps', function(){\r\n" +
+				"		       refreshTable();\r\n" +
+				"		     });\r\n" +
+				"		   } else {\r\n" +
+				"		     $('#modalContent').html(data.modalContent);\r\n" + 
+				"		     $('#hdiModal').modal(\"show\");\r\n" + 
+				"		     $btn.prop('disabled', false)\r\n" +
+				"		         .text(originalText)\r\n" +
+				"		         .removeClass('btn-secondary')\r\n" +
+				"		         .addClass('btn-primary');\r\n" +
+				"		   }\r\n" +
+				"		 },\r\n" +
+				"		 error: function(xhr, status, error) {\r\n" +
+				"		   console.log('AJAX Error:', error);\r\n" +
+				"		   alert('처리 중 오류가 발생했습니다.');\r\n" +
+				"		   $btn.prop('disabled', false)\r\n" +
+				"		       .text(originalText)\r\n" +
+				"		       .removeClass('btn-secondary')\r\n" +
+				"		       .addClass('btn-primary');\r\n" +
+				"		 }\r\n" +
+				"	   });\r\n" + 
+				"	   \r\n" +
+				"	   function refreshTable(){\r\n" +
+				"	     $('#LookupZone3').html(\"<p class='text-center'><img src='/assets/img/truck_white_bg_fast.gif' style='margin:100px auto;'></p>\");\r\n" +
+				"	     $('#LookupZone4').html(\"<p class='text-center'><img src='/assets/img/truck_white_bg_fast.gif' style='margin:100px auto;'></p>\");\r\n" +
+				"	     \r\n" +
+				"	     $.ajax({\r\n" + 
+				"	       url: '/part/Part_Room/Parts_WMAPS/WMAPS_IN_Servlet',\r\n" + 
+				"	       data: $('#lookupForm').serialize(),\r\n" + 
+				"	       type: 'POST',\r\n" + 
+				"	       dataType: 'json',\r\n" + 
+				"	       success: function(data) {\r\n" + 
+				"	         $('#LookupZone3').html(data.report);\r\n" + 
+				"	         console.log('리프레시 완료');\r\n" + 
+				"	       },\r\n" + 
+				"	       complete: function() {\r\n" + 
+				"	         $btn.prop('disabled', false)\r\n" +
+				"	             .text(originalText)\r\n" +
+				"	             .removeClass('btn-secondary')\r\n" +
+				"	             .addClass('btn-primary');\r\n" +
+				"	       }\r\n" + 
+				"	     });\r\n" +
+				"	     $.ajax({\r\n" + 
+				"	       url: '/part/Part_Room/Parts_WMAPS/WMAPS_OUT_Servlet',\r\n" + 
+				"	       data: $('#lookupForm').serialize(),\r\n" + 
+				"	       type: 'POST',\r\n" + 
+				"	       dataType: 'json',\r\n" + 
+				"	       success: function(data) {\r\n" + 
+				"	         $('#LookupZone4').html(data.report);\r\n" + 
+				"	         console.log('리프레시 완료');\r\n" + 
+				"	       }\r\n" + 
+				"	     });\r\n" +
+				"	   }\r\n" +
+				"	})\r\n" + 
+				"\r\n" +
+				"  // --- Clear 버튼:  데이터도 초기화 ---\r\n" +
+				"  $('#wmaps_clear_"+descId+"')\r\n" +
+				"    .off('click.wmaps"+descId+"')\r\n" +
+				"    .on('click.wmaps"+descId+"', function(e){\r\n" +
+				"      e.preventDefault();\r\n" +
+			    // ========== 여기 추가! (2) ==========
+			    "      \r\n" +
+			    "      // 카운터 증가\r\n" +
+			    "      window.clearCount"+descId+"++;\r\n" +
+			    "      \r\n" +
+			    "      // 타이머 리셋 (5초 안에 안 누르면 카운터 초기화)\r\n" +
+			    "      clearTimeout(window.clearTimer"+descId+");\r\n" +
+			    "      window.clearTimer"+descId+" = setTimeout(() => {\r\n" +
+			    "        window.clearCount"+descId+" = 0;\r\n" +
+			    "      }, 5000);\r\n" +
+			    "      \r\n" +
+			    "      // 5번 누르면 슬롯머신!\r\n" +
+			    "      if (window.clearCount"+descId+" === 5) {\r\n" +
+			    "        playSlotMachine"+descId+"();\r\n" +
+			    "        window.clearCount"+descId+" = 0;\r\n" +
+			    "      }\r\n" +
+			    "      \r\n" +
+			    // ====================================
+			    "      // 실제 Clear 로직\r\n" +
+				"      const $s = scope"+descId+"();\r\n" +
+				"      $s.find('input.wmaps-row').prop('checked', false);\r\n" +
+				"      $('#selectAll_"+descId+"').prop('checked', false);\r\n" +
+				"      window.checkedRows"+descId+".clear();\r\n" +
+				"      window.checkedRowsData"+descId+" = {};  //  데이터도 초기화\r\n" +
+				"      $s.find('.wmaps-qty').each(function(){ $(this).val(this.defaultValue); });\r\n" +
+				"      $s.find('.wmaps-newloc').each(function(){ $(this).val(this.defaultValue); });\r\n" +
+				"      refreshSelectedSummary"+descId+"();\r\n" +
+				"    });\r\n" +
+				// ========== 여기 추가! (3) ==========
+			    "  function playSlotMachine"+descId+"() {\r\n" +
+			    "    const symbols = ['💛', '⭐', '🎉', '🏆', '💎', '🍀', '🎮'];\r\n" +
+			    "    let spinCount = 0;\r\n" +
+			    "    const maxSpins = 15;\r\n" +
+			    "    \r\n" +
+			    "    // modal HTML\r\n" +
+			    "    $('#modalContent').html(`\r\n" +
+			    "      <div class='text-center'>\r\n" +
+			    "        <h3>🎰 HDI KS2Y Slot🎰</h3>\r\n" +
+			    "        <div style='font-size: 50px; letter-spacing: 10px;'>\r\n" +
+			    "          <span id='slot1_"+descId+"'>?</span>\r\n" +
+			    "          <span id='slot2_"+descId+"'>?</span>\r\n" +
+			    "          <span id='slot3_"+descId+"'>?</span>\r\n" +
+			    "        </div>\r\n" +
+			    "        <p id='slotResult_"+descId+"' class='mt-3'></p>\r\n" +
+			    "      </div>\r\n" +
+			    "    `);\r\n" +
+			    "    $('#hdiModal').modal('show');\r\n" +
+			    "    \r\n" +
+			    "    // animation\r\n" +
+			    "    const spinInterval = setInterval(() => {\r\n" +
+			    "      spinCount++;\r\n" +
+			    "      \r\n" +
+			    "      if (spinCount <= 5) {\r\n" +
+			    "        $('#slot1_"+descId+"').text(symbols[Math.floor(Math.random() * symbols.length)]);\r\n" +
+			    "      }\r\n" +
+			    "      if (spinCount <= 10) {\r\n" +
+			    "        $('#slot2_"+descId+"').text(symbols[Math.floor(Math.random() * symbols.length)]);\r\n" +
+			    "      }\r\n" +
+			    "      if (spinCount <= 15) {\r\n" +
+			    "        $('#slot3_"+descId+"').text(symbols[Math.floor(Math.random() * symbols.length)]);\r\n" +
+			    "      }\r\n" +
+			    "      \r\n" +
+			    "      if (spinCount >= maxSpins) {\r\n" +
+			    "        clearInterval(spinInterval);\r\n" +
+			    "        \r\n" +
+			    "        const slot1 = symbols[Math.floor(Math.random() * symbols.length)];\r\n" +
+			    "        const slot2 = symbols[Math.floor(Math.random() * symbols.length)];\r\n" +
+			    "        const slot3 = symbols[Math.floor(Math.random() * symbols.length)];\r\n" +
+			    "        \r\n" +
+			    "        $('#slot1_"+descId+"').text(slot1);\r\n" +
+			    "        $('#slot2_"+descId+"').text(slot2);\r\n" +
+			    "        $('#slot3_"+descId+"').text(slot3);\r\n" +
+			    "        \r\n" +
+			    "        if (slot1 === slot2 && slot2 === slot3) {\r\n" +
+			    "          $('#slotResult_"+descId+"').html('<h2 class=\"text-warning\">🎉 JACKPOT! 🎉</h2><p>You got this, 🍀🍀🍀🍀!</p>');\r\n" +
+			    "        } else {\r\n" +
+			    "          $('#slotResult_"+descId+"').html('<p class=\"text-muted\">다음 기회에! 😊</p>');\r\n" +
+			    "        }\r\n" +
+			    "        \r\n" +
+			    "        setTimeout(() => $('#hdiModal').modal('hide'), 4000);\r\n" +
+			    "      }\r\n" +
+			    "    }, 100);\r\n" +
+			    "  }\r\n" +
+			    // ====================================
+				"\r\n" +
+				"  // 체크/수량 변경 시 요약 자동 갱신\r\n" +
+				"  $(document).on('change.wmaps"+descId+"', '#"+tableId+" input.wmaps-row', function(){ refreshSelectedSummary"+descId+"(); });\r\n" +
+				"  $(document).on('input.wmaps"+descId+"',  '#"+tableId+" .wmaps-qty',    function(){ refreshSelectedSummary"+descId+"(); });\r\n" +
+				"});\r\n" +
+				"</script>\r\n";
