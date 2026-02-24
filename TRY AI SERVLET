@@ -1,0 +1,231 @@
+package hdi.part.Part_Room.Parts_WMAPS;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import hdi.common.User;
+import hdi.common.UserBean;
+import hdi.common.hdiUtils;
+
+/**
+ * WMAPS AI Analysis Servlet
+ * - type=WHWIP  → session "WMAPS_WHWIP_Summary" 분석
+ * - type=INNOUT → session "WMAPS_INNOUT"         분석
+ */
+@WebServlet("/part/Part_Room/Parts_WMAPS/WMAPS_AI_Servlet")
+public class WMAPS_AI_Servlet extends HttpServlet {
+    private static final long serialVersionUID = 1L;
+
+    // ★ 여기에 본인 Anthropic API Key 넣으세요
+    private static final String API_KEY = "YOUR_ANTHROPIC_API_KEY";
+    private static final String API_URL = "https://api.anthropic.com/v1/messages";
+    private static final String MODEL   = "claude-opus-4-6";
+
+    public WMAPS_AI_Servlet() { super(); }
+
+    @SuppressWarnings("unchecked")
+    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+
+        HttpSession session = request.getSession();
+        User usr = session.getAttribute("currentSessionUser") != null
+                ? (User) session.getAttribute("currentSessionUser") : new User();
+
+        // 권한 체크
+        try {
+            if (hdiUtils.IsAllowedRequest(usr, request)) {
+                UserBean.accessLogged(usr, request.getRequestURI());
+            } else {
+                session.setAttribute("errMsg", "at " + hdiUtils.lastStr(request.getRequestURI(), "/"));
+                response.sendRedirect("/AccessDenied.jsp");
+                return;
+            }
+        } catch (SQLException e1) {
+            e1.printStackTrace();
+        }
+
+        // type 파라미터 → WHWIP 또는 INNOUT
+        String type = request.getParameter("type");
+        if (type == null) type = "WHWIP";
+
+        response.setContentType("application/json;charset=utf-8");
+        JSONObject json = new JSONObject();
+
+        try {
+            String dataText  = "";
+            String titleText = "";
+
+            // ── WHWIP Summary 분석 ──────────────────────────────────────
+            if (type.equalsIgnoreCase("WHWIP")) {
+                List<WMAPS_DS> vlist =
+                    (List<WMAPS_DS>) session.getAttribute("WMAPS_WHWIP_Summary");
+
+                if (vlist == null || vlist.isEmpty()) {
+                    json.put("status", "ERROR");
+                    json.put("result", "<div class='alert alert-warning'>⚠️ No data found. Please click <strong>Get</strong> button first.</div>");
+                    try (PrintWriter pw = response.getWriter()) { pw.print(json.toString()); }
+                    return;
+                }
+
+                titleText = "WH WIP Summary";
+                StringBuilder sb = new StringBuilder();
+                sb.append("Part Description | Parts List | Warehouse Stock | OEM Price\n");
+                sb.append("--------------------------------------------------------------\n");
+                // 마지막 행은 Total이라 제외
+                for (int i = 0; i < vlist.size() - 1; i++) {
+                    WMAPS_DS d = vlist.get(i);
+                    sb.append(d.get_pdesc())
+                      .append(" | ").append(d.get_parts_list())
+                      .append(" | WH:").append(d.get_wh_stock())
+                      .append(" | $").append(d.get_oem_prices())
+                      .append("\n");
+                }
+                // Total row
+                WMAPS_DS total = vlist.get(vlist.size() - 1);
+                sb.append("TOTAL | | WH:").append(total.get_wh_stock())
+                  .append(" | $").append(total.get_oem_prices()).append("\n");
+                dataText = sb.toString();
+
+            // ── INNOUT 분석 ─────────────────────────────────────────────
+            } else if (type.equalsIgnoreCase("INNOUT")) {
+                List<WMAPS_DS> vlist =
+                    (List<WMAPS_DS>) session.getAttribute("WMAPS_INNOUT");
+
+                if (vlist == null || vlist.isEmpty()) {
+                    json.put("status", "ERROR");
+                    json.put("result", "<div class='alert alert-warning'>⚠️ No data found. Please click <strong>Get</strong> button first.</div>");
+                    try (PrintWriter pw = response.getWriter()) { pw.print(json.toString()); }
+                    return;
+                }
+
+                titleText = "IN-N-OUT Summary";
+                StringBuilder sb = new StringBuilder();
+                sb.append("PartID | PDESC | Location | LocType | PartQty | TotalStock | PR | WH | PO | IN | OUT | NeedToInOut\n");
+                sb.append("--------------------------------------------------------------------------------------------------\n");
+                for (int i = 0; i < vlist.size() - 1; i++) {
+                    WMAPS_DS d = vlist.get(i);
+                    sb.append(d.get_part_id())
+                      .append(" | ").append(d.get_pdesc())
+                      .append(" | ").append(d.get_loc_id())
+                      .append(" | ").append(d.get_loc_type())
+                      .append(" | QTY:").append(d.get_part_wip())
+                      .append(" | STK:").append(d.get_stock_total())
+                      .append(" | PR:").append(d.get_pr_stock())
+                      .append(" | WH:").append(d.get_wh_stock())
+                      .append(" | PO:").append(d.get_po_total())
+                      .append(" | IN:").append(d.get_in())
+                      .append(" | OUT:").append(d.get_out())
+                      .append(" | NEED:").append(d.get_need_to_move())
+                      .append("\n");
+                }
+                WMAPS_DS total = vlist.get(vlist.size() - 1);
+                sb.append("TOTAL | | | | | STK:").append(total.get_stock_total())
+                  .append(" | PR:").append(total.get_pr_stock())
+                  .append(" | WH:").append(total.get_wh_stock())
+                  .append(" | PO:").append(total.get_po_total())
+                  .append(" | IN:").append(total.get_in())
+                  .append(" | OUT:").append(total.get_out())
+                  .append(" | NEED:").append(total.get_need_to_move())
+                  .append("\n");
+                dataText = sb.toString();
+            }
+
+            // ── Anthropic API 호출 ──────────────────────────────────────
+            String aiResult = callAnthropicAPI(titleText, dataText);
+
+            json.put("status", "SUCCESS");
+            json.put("result", aiResult);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            json.put("status", "ERROR");
+            json.put("result", "<div class='alert alert-danger'>❌ AI Error: " + e.getMessage() + "</div>");
+        }
+
+        try (PrintWriter pw = response.getWriter()) {
+            pw.print(json.toString());
+        }
+    }
+
+    /**
+     * Anthropic API 호출
+     */
+    private String callAnthropicAPI(String title, String dataText) throws Exception {
+
+        String prompt =
+            "You are a warehouse inventory analyst. Analyze the following " + title + " data.\n\n" +
+            "DATA:\n" + dataText + "\n\n" +
+            "Please provide a concise analysis in HTML format with:\n" +
+            "1. <b>Key Insights</b>: 2-3 bullet points about current stock status\n" +
+            "2. <b>Risk Items</b>: Parts with low stock or high shortage risk (use red color for critical)\n" +
+            "3. <b>Recommendations</b>: Short actionable suggestions\n\n" +
+            "Keep it brief and use Bootstrap classes for formatting. " +
+            "Use <span class='text-danger'> for critical items, " +
+            "<span class='text-warning'> for caution, " +
+            "<span class='text-success'> for good status.";
+
+        // JSON body 생성
+        JSONObject body = new JSONObject();
+        body.put("model", MODEL);
+        body.put("max_tokens", 1024);
+
+        JSONArray messages = new JSONArray();
+        JSONObject msg = new JSONObject();
+        msg.put("role", "user");
+        msg.put("content", prompt);
+        messages.put(msg);
+        body.put("messages", messages);
+
+        // HTTP 요청
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest req = HttpRequest.newBuilder()
+            .uri(URI.create(API_URL))
+            .header("Content-Type", "application/json")
+            .header("x-api-key", API_KEY)
+            .header("anthropic-version", "2023-06-01")
+            .POST(HttpRequest.BodyPublishers.ofString(body.toString()))
+            .build();
+
+        HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString());
+
+        // 응답 파싱
+        JSONObject resJson = new JSONObject(res.body());
+
+        if (resJson.has("content")) {
+            JSONArray content = resJson.getJSONArray("content");
+            if (content.length() > 0) {
+                return content.getJSONObject(0).getString("text");
+            }
+        }
+
+        // 에러 응답 처리
+        if (resJson.has("error")) {
+            String errMsg = resJson.getJSONObject("error").optString("message", "Unknown error");
+            return "<div class='alert alert-danger'>API Error: " + errMsg + "</div>";
+        }
+
+        return "<div class='alert alert-warning'>No response from AI.</div>";
+    }
+
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        doGet(request, response);
+    }
+}
