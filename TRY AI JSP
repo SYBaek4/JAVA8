@@ -1,0 +1,553 @@
+<%@ page language="java" pageEncoding="UTF-8" contentType="text/html; charset=UTF-8" %>
+<%@page import="java.text.*" %>
+<%@page import="java.time.*" %>
+<%@page import="java.util.*" %>
+<%@page import="javax.servlet.*" %>
+<%@page import="hdi.common.*" %>
+<%@page import="hdi.lcd_lcm.*" %>
+<jsp:useBean id = "ub" class = "hdi.common.UserBean" scope="page"/>
+<jsp:useBean id = "pu" class = "hdi.common.PageUtils" scope="page"/>
+<jsp:useBean id="wb" class="hdi.part.Part_Room.Parts_WMAPS.WMAPS_Beans" scope="page"/>
+
+<%
+response.setHeader("Cache-Control","no-cache"); //HTTP 1.1
+response.setHeader("Pragma","no-cache"); //HTTP 1.0
+response.setDateHeader ("Expires", 0);
+//prevents caching at the proxy server
+request.setAttribute("hdiUrl", "/");
+
+String pageHREF = request.getRequestURI();
+Set<String> roleSet = ub.GetPageRoleSet(pageHREF);
+
+User usr = session.getAttribute("currentSessionUser")!=null ? (User)session.getAttribute("currentSessionUser"): new User() ;
+
+if ( UserBean.hasAccessPage(usr, roleSet)){
+	UserBean.accessLogged(usr, pageHREF);
+}else{
+	response.sendRedirect("/hdi.jsp?err=AccessDenied");
+	return;
+}
+
+
+String sDate = request.getParameter("sDate");
+String eDate = request.getParameter("eDate");
+String addPO = request.getParameter("addPO"); //YES(Additional PO) || NO(N/A)
+String upcomingDO = request.getParameter("upcomingDO"); //YES(upcomingDO) || NO(N/A)
+String Next_Month = request.getParameter("Next_Month");	//N/A (Default) || 1wk || 2wk || 3wk || 4wk 
+
+//✅ PDESC 다중 선택 파라미터 처리
+String[] pdesx = request.getParameterValues("pdesc");
+String pdesc_list = (pdesx == null || pdesx.length < 1) ? "QUICKPDESC" : String.join(",", Arrays.asList(pdesx));
+
+//✅ Beans 인스턴스 생성 (옵션 HTML 생성용)
+String pdesc_option = wb.make_pdesc_options(pdesc_list);
+
+if( (addPO == null || addPO.isEmpty()) ) {
+	addPO = "YES";	
+}
+if( (upcomingDO == null || upcomingDO.isEmpty()) ) {
+	upcomingDO = "YES";	
+}
+if( (Next_Month == null || Next_Month.isEmpty()) ) {
+	Next_Month = "N/A";	
+}
+
+String addpo_options="<option value='YES'";
+if(addPO.equalsIgnoreCase("YES")) addpo_options+=" selected";
+addpo_options+=">Include</option><option value='NO' ";
+if(addPO.equalsIgnoreCase("NO")) addpo_options+=" selected";
+addpo_options+=">N/A</option>";
+
+String upcomingdo_options="<option value='YES'";
+if(upcomingDO.equalsIgnoreCase("YES")) upcomingdo_options+=" selected";
+upcomingdo_options+=">Include</option><option value='NO' ";
+if(upcomingDO.equalsIgnoreCase("NO")) upcomingdo_options+=" selected";
+upcomingdo_options+=">N/A</option>";
+
+//period(sdate, edate)
+Calendar cal = Calendar.getInstance();
+cal.setTime(new Date());
+Date edate = cal.getTime();
+
+Date sdate = DateCalc.FirstdayOftheMonth();
+DateFormat df3 = new SimpleDateFormat("MM/dd/yyyy");
+
+if( (sDate != null && !sDate.isEmpty()) && (eDate != null && !eDate.isEmpty()) ) {
+	sdate = df3.parse(sDate);
+	edate = df3.parse(eDate);
+}else{
+	eDate = df3.format(edate);	
+	sDate = df3.format(sdate);
+}
+%>
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>WMAPS</title>
+<% out.println(pu.Header2()); %>
+
+<!-- ✅ Select2 라이브러리 -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<style>
+table.display { 
+    border-collapse: collapse !important; 
+    border-spacing: 0 !important;
+    border: 1px solid #708090 !important; 
+    --bs-border-color: #708090;
+    --bs-border-width: 1px;
+} 
+table.display td, 
+table.display th { 
+    line-height: 1.0rem !important; 
+    font-size: 11px !important; 
+    border-right: 1px solid #708090 !important;
+    border-bottom: 1px solid #708090 !important;
+} 
+table.display thead th, 
+table.display thead td { 
+    border-bottom: 1px solid #708090 !important; 
+} 
+table.display tfoot th, 
+table.display tfoot td {  
+    border-top: 1px solid #708090 !important;
+    border-right: 1px solid #708090 !important;
+}
+table.display a:link, table.display a:visited { 
+  color: blue; text-decoration: none;
+}
+table.display a:hover {
+  color: blue; text-decoration: underline;
+}
+div.dataTables_wrapper {
+  font-size: 11px; margin: 0 auto; margin-bottom: 1em;
+}
+.select2-results__options {
+    font-size: 0.9rem !important;
+    line-height: 1.0rem !important;
+}
+.select2-selection__rendered {
+    font-size: 0.8rem;
+    padding: 0px !important;
+    margin: 0 !important;
+}
+.select2-container .select2-selection--multiple {
+    height: calc(1.80rem + 2px) !important;
+    min-height: calc(1.80rem + 2px) !important;
+    font-size: 11px !important;
+}
+.select2-container--default .select2-selection--multiple .select2-selection__choice {
+    background-color: #e4e4e4;
+    border: 1px solid #aaa;
+    border-radius: 4px;
+    margin: 2px 1px 0px 3px !important;
+}
+
+/* ✅ AI 버튼 스타일 */
+.ai-btn-area {
+    display: flex;
+    justify-content: flex-end;
+    padding: 4px 4px 0 0;
+}
+</style>
+
+<script>
+<%
+out.println( PageUtils.DatePickerJS() );
+
+HashMap<String,String> tabs = new HashMap<String,String>();
+tabs.put("tab", "WHWIPSummary_Tab\nINNOUT_Tab\nIN_Tab\nOUT_Tab\nTRANS_Tab");
+tabs.put("report", "WHWIP_Summary_Table\nINNOUT_Table\nIN_Table\nOUT_Table\nTRANS_Table");
+out.println(PageUtils.TabJS(tabs));	
+%>
+</script>
+
+<script>
+$( document ).ready(function() {
+
+	// ✅ Select2 초기화
+    $('.js-pdesc-select').select2({
+        placeholder: 'Select PDESC...([ctrl] + Click to select multiple PESC.)',
+        width: 'resolve',
+        allowClear: true
+    });
+
+	$('#lookupBtn').on('click', function(){
+		do_refresh();
+	});
+
+	$('#showAll').on('change', function(){
+	    if($(this).val() === 'YES') {
+	        $('#pdescWrapper').hide();
+	        $('#showAllWarning').show();
+	    } else {
+	        $('#pdescWrapper').show();
+	        $('#showAllWarning').hide();
+	    }
+	});
+	
+    $('.datepicker').datepicker({
+        dateFormat: 'mm/dd/yy',
+        changeMonth: true,
+        changeYear: true
+    });
+    
+    // ✅ TRANS 탭 Get 버튼
+    $('#transLogGetBtn').on('click', function(){
+        $('#LookupZone6').html("<div class='d-flex justify-content-center align-items-center' style='min-height:400px;'><img src='/assets/img/french-fries-gif-4.gif'></div>");
+        $.ajax({
+            url: '/part/Part_Room/Parts_WMAPS/WMAPS_TODAY_TRANS_Servlet', 
+            data: $("#transLogForm").serialize(),
+            type: 'POST',
+            dataType: 'json',
+            success: function(data) {
+                $('#LookupZone6').html(data.report);
+            }
+        });
+    });
+});
+
+// ─────────────────────────────────────────────────────
+// 기존 do_refresh() - 변경 없음
+// ─────────────────────────────────────────────────────
+function do_refresh() {
+	$('#LookupZone7').html("<p class='text-center px-5'><img src='/assets/img/burger_loading.gif' style='margin:100px auto;'></p>").show();
+	$('#LookupZone2').html("<p class='text-center'><img src='/assets/img/beach-gif.gif' style='margin:100px auto;'></p>");
+	$('#LookupZone3').html("<p class='text-center'><img src='/assets/img/truck_white_bg_fast.gif' style='margin:100px auto;'></p>");
+	$('#LookupZone4').html("<p class='text-center'><img src='/assets/img/truck_white_bg_fast.gif' style='margin:100px auto;'></p>");
+	
+	$.ajax({
+		url: '/part/Part_Room/Parts_WMAPS/WMAPS_WHWIP_Summary_Servlet', 
+		data:$("#lookupForm").serialize(),
+		type: 'POST',
+		dataType: 'json',
+		success: function(data) {
+			$('#LookupZone7').html(data.report);
+		}
+	});
+	$.ajax({
+		url: '/part/Part_Room/Parts_WMAPS/WMAPS_INNOUT_Servlet', 
+		data:$("#lookupForm").serialize(),
+		type: 'POST',
+		dataType: 'json',
+		success: function(data) {
+			$('#LookupZone2').html(data.report);
+		}
+	});
+	$.ajax({
+		url: '/part/Part_Room/Parts_WMAPS/WMAPS_IN_Servlet', 
+		data:$("#lookupForm").serialize(),
+		type: 'POST',
+		dataType: 'json',
+		success: function(data) {
+			$('#LookupZone3').html(data.report);
+		}
+	});
+	$.ajax({
+		url: '/part/Part_Room/Parts_WMAPS/WMAPS_OUT_Servlet', 
+		data:$("#lookupForm").serialize(),
+		type: 'POST',
+		dataType: 'json',
+		success: function(data) {
+			$('#LookupZone4').html(data.report);
+		}
+	});
+}
+
+function do_detail(model, defect) {
+	ActiveTab('Detail_Tab');
+	$('#lookupModel').val(model);
+	$('#lookupKeyword').val('');
+	$('#lookupDefect').val(defect);
+	$('#lookupFrom').val('detail');
+	$('#LookupZone5').html("<p style='text-align:center;'><img src='/assets/img/ajax_loader_blue_350.gif' style='margin:100px auto;'></p>");
+	$.ajax({
+		url: '/lcd_lcm/Octa_Report2/RD_LCM_Tracking/RD_LCM_Detail_Servlet', 
+		data:$("#lookupForm").serialize(),
+		type: 'POST',
+		dataType: 'json',
+		success: function(data) {
+			$('#LookupZone5').html(data.report);
+		}
+	});
+}
+
+// ─────────────────────────────────────────────────────
+// ✅ 신규: AI Analysis 함수
+// ─────────────────────────────────────────────────────
+function do_ai_analyze(type) {
+    var btnId = (type === 'WHWIP') ? '#aiBtn_WHWIP' : '#aiBtn_INNOUT';
+    var label = (type === 'WHWIP') ? 'WH WIP Summary' : 'IN-N-OUT';
+
+    // 버튼 로딩 상태
+    $(btnId).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Analyzing...');
+
+    // 모달 열고 로딩 표시
+    $('#aiModalTitle').text('🤖 AI Analysis - ' + label);
+    $('#aiModalBody').html(
+        "<div class='text-center py-4'>" +
+        "<img src='/assets/img/burger_loading.gif' style='height:80px;'><br>" +
+        "<p class='mt-2 text-muted'>AI is analyzing your data...</p>" +
+        "</div>"
+    );
+    $('#aiModal').modal('show');
+
+    $.ajax({
+        url:      '/part/Part_Room/Parts_WMAPS/WMAPS_AI_Servlet',
+        type:     'GET',
+        data:     { type: type },
+        dataType: 'json',
+        success: function(data) {
+            if (data.status === 'SUCCESS') {
+                $('#aiModalBody').html("<div class='p-2'>" + data.result + "</div>");
+            } else {
+                $('#aiModalBody').html(data.result);
+            }
+        },
+        error: function(xhr, status, err) {
+            $('#aiModalBody').html(
+                "<div class='alert alert-danger'>Request failed: " + err + "</div>"
+            );
+        },
+        complete: function() {
+            $(btnId).prop('disabled', false).html('🤖 AI Analysis');
+        }
+    });
+}
+</script>
+</head>
+
+<body>
+<% out.println(pu.TopMenu2( usr )); %>
+
+<!-- 기존 hdiModal (Move IN/OUT 결과용) -->
+<div class="modal fade" id="hdiModal" tabindex="-1" role="dialog" aria-labelledby="hdiModal" aria-hidden="true">
+	<div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+		<div id="modalContent" class="modal-content">
+			<div id='modalHeader' class='modal-header'></div>
+			<div id="modalBody" class='modal-body'></div>
+			<div class='modal-foorer'></div>
+		</div>
+	</div>
+</div>
+
+<!-- ✅ 신규: AI 분석 결과 모달 -->
+<div class="modal fade" id="aiModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="aiModalTitle">🤖 AI Analysis</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="aiModalBody" style="max-height:500px; overflow-y:auto;">
+            </div>
+            <div class="modal-footer">
+                <small class="text-muted mr-auto">Powered by Google Gemini</small>
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid" style="padding-top:10px;">
+	<div class="card" style="margin-bottom:4px;">
+		<div class="card-header">
+			<div class="container-fluid">
+				<div class='float-left card-title mt-1'>
+					<h2><i class="bi bi-balloon-fill text-warning"></i>WAREHOUSE IN-N-OUT</h2>
+				</div>
+
+				<div class='float-right'>
+					<div class="container-fluid">
+						<form id="lookupForm" method="post">
+							<input type="hidden" id="lookupModel"   name="model"   value="" />
+							<input type="hidden" id="lookupDefect"  name="defect"  value="" />
+							<input type="hidden" id="lookupKeyword" name="keyword" value="" />
+							<input type="hidden" id="lookupFrom"    name="from"    value="" />
+							
+							<div class="float-left ml-2 mt-2">
+							    <div class="input-group input-group-sm">
+							        <span class="input-group-text">Show</span>
+							        <select id="showAll" name="showAll" class="form-select form-select-sm">
+							            <option value="NO">PO Based</option>
+							            <option value="YES">All Parts</option>
+							        </select>
+							    </div>
+							</div>
+							
+							<div id="showAllWarning" class="float-left mt-2 ml-2" style="display:none;">
+							    <div style="background-color:#fff3cd; border:1px solid #ffc107; 
+							                border-radius:4px; padding:4px 8px; font-size:11px; line-height:1.4;">
+							        ⚠️ May take longer. Entire Parts shown. Please be careful to use.
+							    </div>
+							</div>
+							
+						    <div class="float-left ml-2 mt-2" id="pdescWrapper">
+						        <div class="input-group input-group-sm">
+						            <span class="input-group-text">Pdesc</span>
+						            <select id="pdesc_option" name="pdesc" multiple="multiple" 
+						                    class="js-pdesc-select form-select form-select-sm" style="width:250px;">
+						                <%= pdesc_option %>
+						            </select>
+						        </div>
+						    </div>
+							
+							<div class="float-left ml-2 mt-2">
+								<div class="input-group input-group-sm">
+									<span class="input-group-text">Next Month</span>
+									<select id="lookupNextMonth" name="Next_Month" class="form-select form-select-sm">
+										<%
+										String currentNM = (Next_Month == null || Next_Month.isEmpty()) ? "N/A" : Next_Month;
+										String[] arr = {"N/A","1wk","2wk","3wk","4wk"};
+										StringBuilder sb2 = new StringBuilder();
+										for(String opt : arr){
+										    sb2.append("<option value='").append(opt).append("'")
+										       .append(opt.equalsIgnoreCase(currentNM) ? " selected" : "")
+										       .append(">").append(opt).append("</option>");
+										}
+										out.println(sb2.toString());
+										%>
+									</select>
+								</div>
+							</div>
+							<div class="float-left ml-2 mt-2">
+								<div class="input-group input-group-sm">
+									<span class="input-group-text">Upcoming DO</span>
+									<select id="lookupupcomingDO" name="upcomingDO" class="form-select form-select-sm">
+										<% out.println(upcomingdo_options); %>	
+									</select>
+								</div>
+							</div>
+							<div class="float-left ml-2 mt-2">
+								<div class="input-group input-group-sm">
+									<span class="input-group-text">Additional PO</span>
+									<select id="lookupaddPO" name="addPO" class="form-select form-select-sm">
+										<% out.println(addpo_options); %>	
+									</select>
+								</div>
+							</div>
+							<div class="float-left ml-3 mt-2">
+								<input id="lookupBtn" type="button" class='btn btn-success btn-sm' style="width:100px;" value="Get" />
+							</div>
+						</form>
+					</div>
+				</div>
+			</div>
+		</div><!-- /card-header -->
+
+		<div class="card-block mh600">
+			<ul class="nav nav-tabs orange-tab" role="tablist">
+				<li class="ml-2">&nbsp;</li>
+				<li class="nav-item"><a class="nav-link" data-toggle="tab" href="#WHWIPSummary_Tab" role="tab">WH WIP Summary</a></li>
+				<li class="nav-item"><a class="nav-link" data-toggle="tab" href="#INNOUT_Tab" role="tab">IN-N-OUT</a></li>
+				<li class="nav-item"><a class="nav-link" data-toggle="tab" href="#IN_Tab" role="tab">IN</a></li>
+				<li class="nav-item"><a class="nav-link" data-toggle="tab" href="#OUT_Tab" role="tab">OUT</a></li>
+				<li class="nav-item"><a class="nav-link" data-toggle="tab" href="#TRANS_Tab" role="tab">WH INNOUT History</a></li>
+			</ul>
+
+			<!-- Tab panes -->
+			<div class="tab-content">
+
+				<!-- ── WH WIP Summary 탭 ── -->
+				<div class="tab-pane p-2" id="WHWIPSummary_Tab" role="tabpanel">
+					<!-- ✅ AI 버튼 -->
+					<div class="ai-btn-area">
+					    <button id="aiBtn_WHWIP" type="button"
+					            class="btn btn-info btn-sm"
+					            onclick="do_ai_analyze('WHWIP')">
+					        🤖 AI Analysis
+					    </button>
+					</div>
+					<div id="LookupZone7">
+						<div class="jumbotron">
+							<h2 class="display-4">WH WIP Summary</h2>
+							<p class="lead"></p>
+							<hr class="my-4">
+						</div>
+					</div>
+				</div>
+
+				<!-- ── IN-N-OUT 탭 ── -->
+				<div class="tab-pane p-2" id="INNOUT_Tab" role="tabpanel">
+					<!-- ✅ AI 버튼 -->
+					<div class="ai-btn-area">
+					    <button id="aiBtn_INNOUT" type="button"
+					            class="btn btn-info btn-sm"
+					            onclick="do_ai_analyze('INNOUT')">
+					        🤖 AI Analysis
+					    </button>
+					</div>
+					<div id="LookupZone2" class='mb-5'>
+						<div class="jumbotron">
+							<h2 class="display-4">IN-N-OUT</h2>
+							<p class="lead"></p>
+							<hr class="my-4">
+						</div>
+					</div>
+				</div>
+				
+				<!-- ── IN 탭 ── -->
+				<div class="tab-pane p-2" id="IN_Tab" role="tabpanel">
+					<div id="LookupZone3" class='mb-5'>
+						<div class="jumbotron">
+							<h2 class="display-4">IN</h2>
+							<p class="lead"></p>
+							<hr class="my-4">
+						</div>
+					</div>
+				</div>
+				
+				<!-- ── OUT 탭 ── -->
+				<div class="tab-pane p-2" id="OUT_Tab" role="tabpanel">
+					<div id="LookupZone4" class='mb-5'>
+						<div class="jumbotron">
+							<h2 class="display-4">OUT</h2>
+							<p class="lead"></p>
+							<hr class="my-4">
+						</div>
+					</div>
+				</div>
+				
+				<!-- ── WH INNOUT History 탭 ── -->
+				<div class="tab-pane p-2" id="TRANS_Tab" role="tabpanel">
+				    <form id="transLogForm" method="post">
+   				      <div class="container-fluid">
+				        <div class="float-left mt-2">
+				            <div class="input-group input-group-sm">
+				                <span class="input-group-text">From</span>
+				                <input type="text" id="trans_sDate" name="sDate" 
+				                       class="form-control form-control-sm datepicker" 
+				                       value="<%= sDate %>" style="width:110px;" />
+				            </div>
+				        </div>
+				        <div class="float-left ml-2 mt-2">
+				            <div class="input-group input-group-sm">
+				                <span class="input-group-text">To</span>
+				                <input type="text" id="trans_eDate" name="eDate" 
+				                       class="form-control form-control-sm datepicker" 
+				                       value="<%= eDate %>" style="width:110px;" />
+				            </div>
+				        </div>
+				        <div class="float-left ml-3 mt-2">
+				            <button id="transLogGetBtn" type="button" 
+				                    class='btn btn-success btn-sm' style="width:100px;">Get History</button>
+				        </div>
+				      </div>
+				    </form>
+				    <div id="LookupZone6">
+						<div class="text-center py-5"></div>
+				    </div>
+				</div>
+
+			</div><!-- /tab-content -->
+		</div><!--/card-block-->
+	</div><!--/card-->
+</div><!--/container-->
+
+<% out.println(pu.Footer("off")); %>
+
+</body>
+</html>
