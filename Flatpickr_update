@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Flatpickr Demo</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_blue.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<style>
+  body { font-family: Arial, sans-serif; padding: 30px; background: #f5f5f5; }
+  .card { background: white; border-radius: 8px; padding: 24px; max-width: 600px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  h3 { margin-bottom: 20px; color: #333; }
+  .row { display: flex; gap: 12px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
+  label { font-size: 13px; font-weight: bold; color: #555; min-width: 60px; }
+  input.flatpickr-input {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 13px;
+    width: 140px;
+    cursor: pointer;
+    background: white;
+  }
+  input.flatpickr-input:focus { outline: none; border-color: #1a73e8; }
+  .theme-label { font-size: 12px; color: #888; margin-bottom: 6px; }
+  .divider { border: none; border-top: 1px solid #eee; margin: 20px 0; }
+  .tag { display: inline-block; background: #e8f0fe; color: #1a73e8; 
+         border-radius: 12px; padding: 2px 10px; font-size: 11px; margin-left: 8px; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h3>📅 Flatpickr 예시 <span class="tag">vs jQuery UI</span></h3>
+
+  <!-- Default Theme -->
+  <div class="theme-label">🔹 Default (기본)</div>
+  <div class="row">
+    <label>From</label>
+    <input type="text" id="demo1_s" placeholder="MM/DD/YYYY" />
+    <label>To</label>
+    <input type="text" id="demo1_e" placeholder="MM/DD/YYYY" />
+  </div>
+
+  <hr class="divider">
+
+  <!-- Material Blue -->
+  <div class="theme-label">🔹 Material Blue 테마</div>
+  <div class="row">
+    <label>From</label>
+    <input type="text" id="demo2_s" placeholder="MM/DD/YYYY" />
+    <label>To</label>
+    <input type="text" id="demo2_e" placeholder="MM/DD/YYYY" />
+  </div>
+
+  <hr class="divider">
+
+  <!-- Range Picker -->
+  <div class="theme-label">🔹 Range Picker (From~To 한번에)</div>
+  <div class="row">
+    <label>Range</label>
+    <input type="text" id="demo3" placeholder="Select date range" style="width:220px;" />
+  </div>
+
+  <hr class="divider">
+
+  <!-- Month Only -->
+  <div class="theme-label">🔹 Month Only (월만 선택)</div>
+  <div class="row">
+    <label>Month</label>
+    <input type="text" id="demo4" placeholder="Select month" />
+  </div>
+</div>
+기존 datepicker 대신 Flatpickr CDN 
+
+<script>
+  // Default
+  flatpickr('#demo1_s', { dateFormat: 'm/d/Y', defaultDate: 'today' });
+  flatpickr('#demo1_e', { dateFormat: 'm/d/Y', defaultDate: 'today' });
+
+  // Material Blue (CSS already loaded above)
+  flatpickr('#demo2_s', { dateFormat: 'm/d/Y', defaultDate: 'today', theme: 'material_blue' });
+  flatpickr('#demo2_e', { dateFormat: 'm/d/Y', defaultDate: 'today', theme: 'material_blue' });
+
+  // Range
+  flatpickr('#demo3', {
+    mode: 'range',
+    dateFormat: 'm/d/Y',
+    defaultDate: ['today']
+  });
+
+  // Month only
+  flatpickr('#demo4', {
+    plugins: [new monthSelectPlugin({ shorthand: true, dateFormat: 'M Y', altFormat: 'M Y' })]
+  });
+</script>
+
+<!-- Month Select Plugin -->
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/plugins/monthSelect/index.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/plugins/monthSelect/style.css">
+
+</div>
+</body>
+</html>
