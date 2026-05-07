@@ -1,0 +1,174 @@
+# DataTables 상태 카드 클릭 필터 UI 구현
+### Interactive Status Card Filter with Visual Toggle | jQuery + DataTables
+
+테이블 데이터를 상태별로 분류할 때, 드롭다운 대신 **상태 카드(Summary Card)를 클릭**하는 방식은 직관적이고 시각적으로 훨씬 좋은 UX를 제공합니다.
+
+---
+
+## ✅ 구현 기능
+
+- 카드 클릭 시 해당 상태만 테이블에 표시
+- 클릭한 카드만 컬러 유지, 나머지는 Grayscale 처리
+- 같은 카드 다시 클릭 시 필터 해제 (Toggle)
+- 요약 숫자는 필터와 무관하게 전체 기준으로 고정
+
+---
+
+## 1. HTML — 상태 카드 + 테이블
+
+```html
+<!-- 요약 카드 -->
+<div class="summary-bar">
+  <div class="summary-card s-total"     data-filter="">Total<br><span id="cntTotal">0</span></div>
+  <div class="summary-card s-pending"   data-filter="Pending">🕐 Pending<br><span id="cntPending">0</span></div>
+  <div class="summary-card s-process"   data-filter="Processing">⚙️ Processing<br><span id="cntProcess">0</span></div>
+  <div class="summary-card s-shipped"   data-filter="Shipped">🚚 Shipped<br><span id="cntShipped">0</span></div>
+  <div class="summary-card s-delivered" data-filter="Delivered">✅ Delivered<br><span id="cntDelivered">0</span></div>
+  <div class="summary-card s-cancelled" data-filter="Cancelled">❌ Cancelled<br><span id="cntCancelled">0</span></div>
+</div>
+
+<!-- DataTables 테이블 -->
+<table id="orderTable" class="display" style="width:100%">
+  <thead>
+    <tr>
+      <th>Order No</th>
+      <th>Customer</th>
+      <th>Product</th>
+      <th>Date</th>
+      <th>Status</th>  <!-- ← 이 컬럼 인덱스(4)를 기준으로 필터링 -->
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+핵심: data-filter 값이 Status 컬럼 텍스트와 일치해야 합니다.
+
+2. CSS — 카드 스타일 + Inactive 처리
+.summary-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.summary-card {
+  padding: 10px 20px;
+  border-radius: 6px;
+  color: #fff;
+  font-weight: bold;
+  font-size: 0.9em;
+  min-width: 100px;
+  text-align: center;
+  cursor: pointer;
+  transition: filter 0.2s, opacity 0.2s; /* 부드러운 전환 */
+  user-select: none;
+}
+
+/* 비활성 카드 — 회색 + 반투명 */
+.summary-card.inactive {
+  filter: grayscale(1);
+  opacity: 0.4;
+}
+
+.s-total     { background-color: #1565c0; }
+.s-pending   { background-color: #6c757d; }
+.s-process   { background-color: #e6a817; }
+.s-shipped   { background-color: #17a2b8; }
+.s-delivered { background-color: #28a745; }
+.s-cancelled { background-color: #dc3545; }
+3. JavaScript — 초기화 + 요약 카운트
+let orderTable = null;
+let activeFilter = ''; // 현재 활성 필터 추적
+
+$(document).ready(function () {
+
+  const orders = [
+    { no: 'ORD-001', customer: 'Alice',   product: 'Laptop',   date: '2025-04-01', status: 'Delivered'  },
+    { no: 'ORD-002', customer: 'Bob',     product: 'Monitor',  date: '2025-04-03', status: 'Shipped'    },
+    { no: 'ORD-003', customer: 'Charlie', product: 'Keyboard', date: '2025-04-05', status: 'Processing' },
+    { no: 'ORD-004', customer: 'Diana',   product: 'Mouse',    date: '2025-04-06', status: 'Pending'    },
+    { no: 'ORD-005', customer: 'Eve',     product: 'Headset',  date: '2025-04-07', status: 'Cancelled'  },
+  ];
+
+  // 요약 카운트 계산 (최초 1회 — 이후 고정)
+  let cnt = { Pending: 0, Processing: 0, Shipped: 0, Delivered: 0, Cancelled: 0 };
+  let rows = '';
+
+  orders.forEach(function (row) {
+    if (cnt[row.status] !== undefined) cnt[row.status]++;
+    rows += `<tr>
+      <td>${row.no}</td>
+      <td>${row.customer}</td>
+      <td>${row.product}</td>
+      <td>${row.date}</td>
+      <td>${getStatusBadge(row.status)}</td>
+    </tr>`;
+  });
+
+  $('#orderTable tbody').html(rows);
+
+  orderTable = $('#orderTable').DataTable({
+    pageLength: 10,
+    order: [[3, 'desc']],
+  });
+
+  // 요약 숫자 세팅 — draw 이벤트에 연결하지 않으므로 필터해도 고정됨
+  $('#cntTotal').text(orders.length);
+  $('#cntPending').text(cnt.Pending);
+  $('#cntProcess').text(cnt.Processing);
+  $('#cntShipped').text(cnt.Shipped);
+  $('#cntDelivered').text(cnt.Delivered);
+  $('#cntCancelled').text(cnt.Cancelled);
+});
+
+function getStatusBadge(status) {
+  const map = {
+    'Pending':    "<span class='badge' style='background:#6c757d'>🕐 Pending</span>",
+    'Processing': "<span class='badge' style='background:#e6a817'>⚙️ Processing</span>",
+    'Shipped':    "<span class='badge' style='background:#17a2b8'>🚚 Shipped</span>",
+    'Delivered':  "<span class='badge' style='background:#28a745'>✅ Delivered</span>",
+    'Cancelled':  "<span class='badge' style='background:#dc3545'>❌ Cancelled</span>",
+  };
+  return map[status] || status;
+}
+4. JavaScript — 카드 클릭 핸들러 (핵심)
+$(document).on('click', '.summary-card', function () {
+  if (!orderTable) return;
+
+  let filter = $(this).data('filter');
+
+  if (filter !== '' && filter === activeFilter) {
+    // 같은 카드 다시 클릭 → Toggle OFF (필터 해제)
+    activeFilter = '';
+    $('.summary-card').removeClass('inactive');
+    orderTable.column(4).search('').draw();
+
+  } else {
+    activeFilter = filter;
+
+    if (filter === '') {
+      // Total 클릭 → 전체 복원
+      $('.summary-card').removeClass('inactive');
+    } else {
+      // 전부 inactive → 클릭한 카드만 active 복원
+      $('.summary-card').addClass('inactive');
+      $(this).removeClass('inactive');
+    }
+
+    orderTable.column(4).search(filter).draw();
+  }
+});
+5. 동작 흐름 요약
+사용자 액션	카드 효과	테이블	요약 숫자
+최초 로드	전체 컬러	전체 표시	전체 기준 고정
+Shipped 클릭	Shipped만 컬러, 나머지 회색	Shipped만 표시	고정 🔒
+Shipped 다시 클릭	전체 컬러 복원	전체 복원	고정 🔒
+Total 클릭	전체 컬러 복원	전체 복원	고정 🔒
+💡 포인트 정리
+data-filter 속성값 = 테이블 Status 컬럼 텍스트와 일치
+activeFilter 변수로 현재 상태 추적 → Toggle 동작 구현
+.inactive 클래스 하나로 grayscale + opacity 처리
+요약 숫자는 draw 이벤트에 연결하지 않고 최초 1회만 계산해 고정
+column(n).search(keyword).draw() — 서버 요청 없이 클라이언트 즉시 처리
+🔗 References
+DataTables — column().search()
+DataTables — rows({ search: 'applied' })
