@@ -1,0 +1,199 @@
+# 클릭 한 번으로 클립보드 복사 구현 (Clipboard API)
+### One-Click Copy to Clipboard | JavaScript Clipboard API + Visual Feedback
+
+드래그 → Ctrl+C 없이, **특정 텍스트를 클릭만 해도 자동 복사**되는 UX를  
+순수 JavaScript(또는 jQuery) 한 줄로 구현하는 방법입니다.
+
+---
+
+## ✅ 구현 기능
+
+- 텍스트 클릭 시 클립보드에 자동 복사
+- 복사 완료 시 색상 변경으로 시각적 피드백
+- 화면 하단 토스트(Toast) 메시지로 복사된 값 확인
+- 같은 페이지에 복사 대상이 여러 개여도 동작
+
+---
+
+## 핵심 원리 — 딱 한 줄
+
+```javascript
+navigator.clipboard.writeText("복사할 텍스트");
+```
+
+브라우저 내장 **Clipboard API**를 사용합니다.  
+Promise 기반이라 `.then()`으로 복사 성공 후 동작을 이어서 처리할 수 있습니다.
+
+> ⚠️ `localhost` 또는 `https` 환경에서만 동작합니다. (`http` 불가)
+
+---
+
+## 1. HTML
+
+```html
+<!-- 복사할 텍스트에 .copy-cell 클래스만 붙이면 끝 -->
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Order No</th>  <!-- 클릭 복사 대상 -->
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Alice</td>
+      <td><span class="copy-cell" title="Click to copy">ORD-20250401-001</span></td>
+      <td>Delivered</td>
+    </tr>
+    <tr>
+      <td>Bob</td>
+      <td><span class="copy-cell" title="Click to copy">ORD-20250403-002</span></td>
+      <td>Shipped</td>
+    </tr>
+  </tbody>
+</table>
+```
+
+> **포인트:** 복사를 원하는 텍스트에 `class="copy-cell"` 하나만 추가하면 됩니다.  
+> 나머지는 JS가 전부 처리합니다.
+
+---
+
+## 2. CSS
+
+```css
+/* 복사 가능한 셀 스타일 */
+.copy-cell {
+    cursor: pointer;
+    color: #1565c0;
+    font-weight: bold;
+    text-decoration: underline dotted; /* 클릭 가능 힌트 */
+    transition: color 0.2s;
+}
+.copy-cell:hover { color: #0d47a1; }
+
+/* 복사 완료 시 초록색으로 전환 */
+.copy-cell.copied {
+    color: #28a745 !important;
+    text-decoration: none;
+}
+
+/* 하단 토스트 */
+.copy-toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: #fff;
+    padding: 7px 20px;
+    border-radius: 20px;
+    font-size: 0.85em;
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;   /* 토스트 자체는 클릭 안 됨 */
+}
+.copy-toast.show { opacity: 1; }
+```
+
+---
+
+## 3. JavaScript (Vanilla JS)
+
+```javascript
+// 이벤트 위임 — 동적으로 생성된 요소에도 동작
+document.addEventListener('click', function (e) {
+    if (!e.target.classList.contains('copy-cell')) return;
+
+    let text = e.target.textContent.trim();
+    let el   = e.target;
+
+    navigator.clipboard.writeText(text).then(function () {
+        // ① 셀 색상 변경 (1.2초 후 복귀)
+        el.classList.add('copied');
+        setTimeout(function () { el.classList.remove('copied'); }, 1200);
+
+        // ② 하단 토스트 표시
+        showCopyToast(text);
+    });
+});
+
+function showCopyToast(text) {
+    let toast = document.querySelector('.copy-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.className = 'copy-toast';
+        document.body.appendChild(toast);
+    }
+    toast.textContent = '📋 Copied: ' + text;
+    toast.classList.add('show');
+    setTimeout(function () { toast.classList.remove('show'); }, 1800);
+}
+```
+
+---
+
+## 3-1. jQuery 버전
+
+```javascript
+$(document).on('click', '.copy-cell', function () {
+    let text = $(this).text().trim();
+    let $el  = $(this);
+
+    navigator.clipboard.writeText(text).then(function () {
+        $el.addClass('copied');
+        setTimeout(function () { $el.removeClass('copied'); }, 1200);
+        showCopyToast(text);
+    });
+});
+
+function showCopyToast(text) {
+    let $toast = $('.copy-toast');
+    if ($toast.length === 0) $toast = $('<div class="copy-toast">').appendTo('body');
+    $toast.text('📋 Copied: ' + text).addClass('show');
+    setTimeout(function () { $toast.removeClass('show'); }, 1800);
+}
+```
+
+---
+
+## 4. 동작 흐름
+
+```
+사용자가 .copy-cell 클릭
+        │
+        ▼
+navigator.clipboard.writeText(text)   ← 클립보드에 저장
+        │
+   성공 .then()
+   ┌────┴────────────────────┐
+   ▼                         ▼
+셀 색상 → 초록 (1.2s)    토스트 표시 (1.8s)
+셀 색상 → 원래대로 복귀   토스트 사라짐
+```
+
+---
+
+## 5. 포인트 정리
+
+| 항목 | 설명 |
+|------|------|
+| `navigator.clipboard.writeText()` | 브라우저 내장 클립보드 API, Promise 반환 |
+| 이벤트 위임 | 동적 생성 요소에도 동작 (`document`에 등록) |
+| `.copied` 클래스 | CSS만으로 시각적 피드백 처리 |
+| `pointer-events: none` | 토스트 메시지가 다른 클릭을 방해하지 않도록 |
+| HTTPS 필수 | `localhost` 또는 `https`에서만 Clipboard API 사용 가능 |
+
+---
+
+## 🔗 References
+
+- [MDN — Clipboard API](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API)
+- [MDN — navigator.clipboard.writeText()](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/writeText)
+
+---
+
+> 주문번호, 티켓번호, 계좌번호, 코드값 등  
+> **테이블 안에서 자주 복사하는 모든 셀**에 바로 적용할 수 있습니다. 🚀
